@@ -12,12 +12,15 @@ import (
 	"github.com/CodisLabs/codis/pkg/utils/log"
 
 	docopt "github.com/docopt/docopt-go"
+	"regexp"
 )
 
 const (
 	ReaderBufferSize = 1024 * 128
 	WriterBufferSize = 1024 * 128
 )
+
+var keyFilters []string
 
 type Flags struct {
 	Source, Target string
@@ -29,11 +32,25 @@ type Flags struct {
 		Path string
 		Size int64
 	}
+	Keys []string
 	ExpireOffset time.Duration
 }
 
 var acceptDB = func(db uint64) bool {
 	return true
+}
+
+var acceptKey = func(value string) bool {
+	if len(keyFilters) == 0 {
+		return true
+	}
+	for _, key := range keyFilters {
+		match, _ := regexp.MatchString(key, value)
+		if match {
+			return true
+		}
+	}
+	return false
 }
 
 func parseFlags(usage string) *Flags {
@@ -124,6 +141,16 @@ func parseFlagsFromArgs(usage string, args []string) *Flags {
 		acceptDB = func(db uint64) bool {
 			return db == uint64(n)
 		}
+	}
+
+	if v, ok := d["--key"]; ok {
+		switch x := v.(type) {
+		case []string:
+			for _, key := range x {
+				flags.Keys = append(flags.Keys, key)
+			}
+		}
+		keyFilters = flags.Keys
 	}
 
 	if s, ok := d["--tmpfile"].(string); ok {

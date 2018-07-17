@@ -20,13 +20,14 @@ import (
 func main() {
 	const usage = `
 Usage:
-	redis-sync [--ncpu=N] (--master=MASTER|MASTER) --target=TARGET [--db=DB] [--tmpfile-size=SIZE [--tmpfile=FILE]]
+	redis-sync [--ncpu=N] (--master=MASTER|MASTER) --target=TARGET [--db=DB] [--tmpfile-size=SIZE [--tmpfile=FILE]] [--key=<KEY>]...
 	redis-sync  --version
 
 Options:
 	-n N, --ncpu=N                    Set runtime.GOMAXPROCS to N.
 	-m MASTER, --master=MASTER        The master redis instance ([auth@]host:port).
-	-t TARGET, --target=TARGET        The target redis instance ([auth@]host:port).
+	-t TARGET, --target=TARGET        The target redis instance ([auth@]host:port).    
+	--key=KEY                         Filter key with regexp, accept all keys by default.
 	--db=DB                           Accept db = DB, default is *.
 	--tmpfile=FILE                    Use FILE to as socket buffer.
 	--tmpfile-size=SIZE               Set FILE size. If no --tmpfile is provided, a temporary file under current folder will be created.
@@ -36,7 +37,7 @@ Examples:
 	$ redis-sync    127.0.0.1:6379 -t passwd@127.0.0.1:6380
 	$ redis-sync    127.0.0.1:6379 -t passwd@127.0.0.1:6380 --db=0
 	$ redis-sync    127.0.0.1:6379 -t passwd@127.0.0.1:6380 --db=0 --tmpfile-size=10gb
-	$ redis-sync    127.0.0.1:6379 -t passwd@127.0.0.1:6380 --db=0 --tmpfile-size=10gb --tmpfile ~/sockfile.tmp
+	$ redis-sync    127.0.0.1:6379 -t passwd@127.0.0.1:6380 --db=0 --tmpfile-size=10gb --tmpfile ~/sockfile.tmp --key ^abc --key 123.*
 `
 	var flags = parseFlags(usage)
 
@@ -188,6 +189,9 @@ Examples:
 			func(e *rdb.DBEntry) bool {
 				if !acceptDB(e.DB) {
 					master.rdb.skip.Incr()
+					return false
+				}
+				if !acceptKey(e.Key.String()) {
 					return false
 				}
 				master.rdb.forward.Incr()

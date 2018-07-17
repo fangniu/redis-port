@@ -629,9 +629,15 @@ func doRestoreAoflog(reader *bufio2.Reader, addr, auth string, on func(db uint64
 			}
 			db = uint64(n)
 		}
+
 		if !on(db, cmd) {
 			continue
 		}
+
+		if len(r.Array) > 1 && !acceptKey(string(r.Array[1].Value)){
+			continue
+		}
+
 		redisSendCommand(encoder, r, tick.Swap(0) != 0)
 	}
 }
